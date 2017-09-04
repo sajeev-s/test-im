@@ -1,7 +1,10 @@
 package hello;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,13 +15,15 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import hello.bo.EventData;
 import hello.bo.IMRequest;
 import hello.bo.Parameter;
+import it.sella.bg.poll.dto.PollMessage;
 
 @Controller
-@RequestMapping("/chatresult")
 public class HelloWorldController {
 
-	@RequestMapping(method = RequestMethod.POST)
-	public @ResponseBody String webhook(@RequestBody IMRequest imRequest){
+	Map<String, List<PollMessage>> map = new HashMap<String, List<PollMessage>>();
+
+	@RequestMapping(value="/chatresult", method = {RequestMethod.POST})
+	public @ResponseBody String chatresult(@RequestBody IMRequest imRequest){
 
 		System.out.println(imRequest.getAction());
 		System.out.println(imRequest.getChatid());
@@ -40,7 +45,52 @@ public class HelloWorldController {
 			}
 		}
 		System.out.println("##################################################");
+
+		List<PollMessage> polls = this.map.get(imRequest.getChatid());
+		if(polls==null){
+			polls = new ArrayList<PollMessage>();
+			this.map.put(imRequest.getChatid(), polls);
+		}
+
+		for (final EventData eventData : imRequest.getEventdata()) {
+			if("message".equals(eventData.getName())){
+				if(imRequest.getChatid()!=null){
+					final PollMessage pollMessage = new PollMessage();
+					pollMessage.setSender("BOT");
+					pollMessage.setMessage((String)eventData.getValue());
+					polls.add(pollMessage);
+				}
+			}
+		}
+
 		return "OK -->"+LocalDateTime.now();
+	}
+
+	@RequestMapping(value="/message", method = {RequestMethod.POST})
+	public @ResponseBody String message(@RequestBody IMRequest imRequest){
+		List<PollMessage> polls = this.map.get(imRequest.getChatid());
+		if(polls==null){
+			polls = new ArrayList<PollMessage>();
+			this.map.put(imRequest.getChatid(), polls);
+		}
+
+		final List<EventData> eventDatas = imRequest.getEventdata();
+		if(eventDatas!=null){
+			for (final EventData eventData : eventDatas) {
+				final PollMessage pollMessage = new PollMessage();
+				pollMessage.setSender("Client");
+				pollMessage.setMessage((String)eventData.getValue());
+				final List<PollMessage> pollMessages = this.map.get(imRequest.getChatid());
+				pollMessages.add(pollMessage);
+			}}
+
+		return "OK -->"+LocalDateTime.now();
+	}
+
+	@RequestMapping(value="/poll", method = {RequestMethod.POST})
+	public @ResponseBody List<PollMessage> poll(@RequestBody IMRequest imRequest){
+		System.out.println("Inside poll -->");
+		return (List<PollMessage>) this.map.get(imRequest.getChatid());
 	}
 
 
